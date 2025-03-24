@@ -1,0 +1,14 @@
+[profile.default]
+src = "src"
+out = "out"
+libs = ["lib"]
+evm_version = "paris"  # or "shanghai" or "cancun" depending on your needs
+# Enable fork testing
+ffi = true
+# Increase the default timeout for tests
+test_timeout = 100000
+
+# See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
+
+[rpc_endpoints]
+mainnet = "${ETH_RPC_URL}"
