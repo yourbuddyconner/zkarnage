@@ -12,3 +12,9 @@ docs/
 
 # Dotenv file
 .env
+
+# Transaction data
+transaction_data.txt
+target_block.txt
+contract_address.txt
+broadcast/
