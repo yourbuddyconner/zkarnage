@@ -3,7 +3,7 @@
 # ZKarnage
 ### Stress Testing ZK Systems Through Maximum Pain
 
-This project implements a worst-case attack on Ethereum provers, specifically targeting the computational overhead required for generating zero-knowledge proofs for blocks. The attack exploits the cost of keccak hashing operations by forcing the EVM to load large contract bytecode into memory.
+This project implements worst-case attacks on Ethereum provers, specifically targeting the computational overhead required for generating zero-knowledge proofs for blocks. The attacks exploit various EVM operations and precompiles that are disproportionately expensive in ZK circuits compared to their gas costs.
 
 </div>
 
@@ -13,88 +13,41 @@ This project implements a worst-case attack on Ethereum provers, specifically ta
 
 ## Background
 
-Zero-knowledge proof systems that verify Ethereum blocks must perform keccak hash operations for every piece of data loaded from state. Contract bytecode is particularly expensive to prove because:
+Zero-knowledge proof systems that verify Ethereum blocks face several challenges:
 
-1. When contract code is accessed via `EXTCODESIZE`, the EVM loads the full bytecode
-2. The loaded bytecode must be hashed with keccak-256 
-3. ZK circuits for keccak are expensive to construct and verify
+1. **Gas Cost vs. ZK Circuit Complexity**: Many EVM operations have gas costs that don't reflect their true computational complexity in ZK circuits. Some operations can be up to 1000x more expensive to prove than their gas cost suggests.
 
-The attack targets blocks where block number % 100 == 0, as these are the blocks that [Ethproof provers](https://ethproofs.org/) focus on generating proofs for. Currently, these proofs:
+2. **Precompile Asymmetry**: Precompiled contracts, particularly cryptographic operations like MODEXP and BN_PAIRING, show extreme disparities between their gas costs and ZK circuit complexity. For example:
+   - MODEXP: 200 gas but 215,389 cycles (1076.95x)
+   - BN_PAIRING: 45,000 gas but 1,705,904 cycles (37.91x)
+
+3. **Memory Operations**: Operations involving memory access and copying are significantly more expensive in ZK circuits due to the need to track and verify memory state.
+
+4. **Jump Destinations**: Simple operations like JUMPDEST (1 gas) require complex circuit logic, leading to a 1037.68x multiplier in ZK overhead.
+
+The project targets blocks where block number % 100 == 0, as these are the blocks that [Ethproof provers](https://ethproofs.org/) focus on generating proofs for. Currently, these proofs:
 - Take ~4-14 minutes to generate per block
 - Cost $0.07-1.29 per proof depending on the prover
 - Process blocks using ~30M gas on average
 
-This makes them particularly susceptible to targeted worst-case scenarios.
+## Attack Vectors
 
-## Attack Vector Analysis
+This project implements multiple attack vectors targeting these inefficiencies. For detailed information about each attack vector and its implementation, see [ATTACKS.md](ATTACKS.md).
 
-The current implementation focuses on exploiting the high cost of Keccak hashing in ZK circuits. By forcing the prover to process ~45MiB of contract bytecode through EXTCODESIZE operations, we create a significant computational burden while keeping gas costs reasonable.
+## Network Resilience Testing
 
-A particularly promising future direction is exploiting precompiled contracts, especially MODEXP. Precompiles are extremely expensive for ZK provers (often 100-1000x more costly to prove than their gas cost suggests) but have fixed gas costs. For example, a MODEXP operation costing 3,000 gas could generate millions of constraints in a ZK circuit.
+This research serves several important purposes:
 
-The most effective approach would likely combine multiple vectors - for instance, using EXTCODESIZE on large contracts while also calling MODEXP precompiles with carefully selected large exponents and moduli. This would maximize the "proof stress to gas cost" ratio while staying within reasonable transaction fee limits.
+1. **Permissionless Network Testing**: Ethereum is a permissionless network where any theoretically supported operation is fair game. These attacks use only valid EVM operations.
 
-### Technical Deep Dive: EXTCODESIZE Attack
+2. **Early Detection**: By identifying and documenting these attack vectors before widespread ZK rollup adoption, we enable:
+   - Improved circuit optimization strategies
+   - Better gas cost calibration
+   - More robust scaling solutions
 
-The current attack implementation exploits the high cost of Keccak hashing in ZK circuits by forcing the EVM to load large contract bytecode through EXTCODESIZE operations. Here's how it works:
+3. **Worst-Case Analysis**: ZK systems must be designed to handle worst-case scenarios, not just typical usage patterns. These attacks help identify potential bottlenecks.
 
-### Attack Mechanism
-1. **Target Selection**: The attack targets 6 large contracts on mainnet, each with significant bytecode size
-2. **Operation**: Uses `EXTCODESIZE` to force the EVM to load the full bytecode of each contract
-3. **ZK Impact**: Each bytecode load requires:
-   - Merkle Patricia trie lookups
-   - Keccak-256 hashing of the bytecode
-   - Complex memory management in ZK circuits
-
-### Implementation Details
-```solidity
-function executeAttack(address[] calldata targets) external {
-    uint256 totalSize = 0;
-    
-    for (uint256 i = 0; i < targets.length; i++) {
-        address target = targets[i];
-        uint256 size = target.code.length;  // Forces EXTCODESIZE
-        totalSize += size;
-        
-        emit ContractAccessed(target, size);
-    }
-    
-    emit AttackSummary(targets.length, totalSize);
-}
-```
-
-### Why It's Effective for ZK Stress Testing
-1. **Asymmetric Complexity**: Gas costs are minimal (~408 gas/KB) while ZK circuit complexity is high
-2. **Linear Scaling**: Each contract adds its full bytecode size to the proof complexity
-3. **Memory Intensive**: Forces ZK circuits to handle large memory operations
-4. **No Circuit Optimizations**: Keccak hashing is inherently expensive to prove
-
-### Performance Metrics
-- Total bytecode loaded: ~45MiB across 6 contracts
-- Gas consumption: ~39,000 gas (normal attack)
-- Gas per KB: ~408 gas/KB
-- Additional overhead with EXTCODECOPY: ~25,700 gas
-
-### Target Contracts
-The attack targets carefully selected large contracts on mainnet:
-```solidity
-address[] memory targets = new address[](6);
-targets[0] = 0x1908D2bD020Ba25012eb41CF2e0eAd7abA1c48BC;
-targets[1] = 0xa102b6Eb23670B07110C8d316f4024a2370Be5dF;
-targets[2] = 0x84ab2d6789aE78854FbdbE60A9873605f4Fd038c;
-targets[3] = 0xfd96A06c832f5F2C0ddf4ba4292988Dc6864f3C5;
-targets[4] = 0xE233472882bf7bA6fd5E24624De7670013a079C1;
-targets[5] = 0xd3A3d92dbB569b6cd091c12fAc1cDfAEB8229582;
-```
-
-## System Architecture
-
-The ZKarnage system is composed of several architectural components that work together:
-
-1. **Smart Contract**: The Solidity contract implementing the EXTCODESIZE attack vector
-2. **Python Orchestration**: A comprehensive Python script that handles deployment, transaction creation, and Flashbots submission
-3. **Bundle Management**: Strategies for ensuring transaction inclusion in target blocks
-4. **Contract Targeting**: Selection of optimal contracts to maximize ZK circuit complexity
+4. **Cost Model Validation**: The research highlights misalignments between EVM gas costs and ZK circuit complexity, informing future gas schedule updates.
 
 ## Project Structure
 
@@ -108,7 +61,7 @@ zkarnage/
 │   └── run_attack.py        # Python orchestration script for Flashbots bundles
 ├── test/                # Test files
 │   └── ZKarnage.t.sol      # Tests for attack contract functionality
-├── design.md            # Detailed design document
+├── ATTACKS.md           # Detailed attack vector documentation
 ├── foundry.toml         # Foundry configuration
 ├── requirements.txt     # Python dependencies
 └── README.md           # This file
@@ -216,17 +169,6 @@ test_timeout = 100000 # Increased timeout for fork tests
 [rpc_endpoints]
 mainnet = "${ETH_RPC_URL}"
 ```
-
-## Network Resilience Testing
-
-This project demonstrates an important principle for decentralized networks:
-
-1. Ethereum is a permissionless network where any theoretically supported operation is fair game
-2. This research does not compromise user funds or exploit vulnerabilities - it simply utilizes supported EVM operations
-3. Zero-knowledge proof systems must be designed to handle worst-case scenarios, not just typical usage
-4. If ZK solutions are deployed to mainnet prematurely, malicious actors could exploit similar or worse patterns
-
-By conducting this research in a transparent manner, we aim to strengthen the Ethereum ecosystem before ZK-based scaling solutions reach widespread adoption. It serves as a reminder that protocol designers must account for all valid operations, not just common ones.
 
 ## License
 
