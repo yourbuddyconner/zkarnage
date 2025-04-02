@@ -925,7 +925,7 @@ class ZKarnage:
         
         Args:
             target_block: Block number to target
-            is_high_priority: Whether the account has high priority status
+            is_high_priority: Whether the account has high priority status (no longer used)
         
         Returns:
             Transaction dictionary
@@ -941,59 +941,36 @@ class ZKarnage:
             "type": "function"
         }
         
-        # Expanded list of contract targets
-        contract_targets = [
-            Web3.to_checksum_address("0x1908D2bD020Ba25012eb41CF2e0eAd7abA1c48BC"),
-            Web3.to_checksum_address("0xa102b6Eb23670B07110C8d316f4024a2370Be5dF"),
-            Web3.to_checksum_address("0x84ab2d6789aE78854FbdbE60A9873605f4Fd038c"),
-            Web3.to_checksum_address("0xfd96A06c832f5F2C0ddf4ba4292988Dc6864f3C5"),
-            Web3.to_checksum_address("0xE233472882bf7bA6fd5E24624De7670013a079C1"),
-            Web3.to_checksum_address("0xd3A3d92dbB569b6cd091c12fAc1cDfAEB8229582"),
-            Web3.to_checksum_address("0xB95c8fB8a94E175F957B5044525F9129fbA0fE0C"),
-            Web3.to_checksum_address("0x1CE8147357D2E68807a79664311aa2dF47c2E4bb"),
-            Web3.to_checksum_address("0x557C810F3F47849699B4ac3D52cb1edcd528B4C0"),
-            Web3.to_checksum_address("0x4AEF3B98F153f6d15339E75e1CF3e5a4513093ae"),
-            Web3.to_checksum_address("0xaA6B611c840e45c7E883F6c535438bB70ce5cc1C"),
-            Web3.to_checksum_address("0xf56a3084cC5EF73265fdf9034E53b07124A60018"),
-            Web3.to_checksum_address("0x049Bcfc78720d662c27ca3f985E299e576cC113D"),
-            Web3.to_checksum_address("0x856Aa0d05f93599ADf9b6131853EC5f0557A9556"),
-            Web3.to_checksum_address("0x9964778500A1a15BbA8d11b958Ac3a1954c1738A"),
-            Web3.to_checksum_address("0x7DE6598b348f7e9A7EBFeB641f1F2d73A4aD30dA"),
-            Web3.to_checksum_address("0x2741D2aEa27a3463eC0ED1824b2147b5CA00D82F"),
-            Web3.to_checksum_address("0x8B319591D75B89A9594e9d570640Edd86CC6E554"),
-            Web3.to_checksum_address("0xA2BcD2bbACFB648014f542057a8378b621Fe86BA"),
-            Web3.to_checksum_address("0xe5aea18B24961d3717e049F36e65cb60d0aF6F76"),
-            Web3.to_checksum_address("0x38D7a126f4d978358313365F3f23Cf5620E2B6bB"),
-            Web3.to_checksum_address("0xa503eA1c72bD3B897703B229Ef75398a20E70439"),
-            Web3.to_checksum_address("0x692f9411301D9bcd9c652D72861692e48C162166"),
-            Web3.to_checksum_address("0xFB1519782165F58974e519C5574AD0FbdFf0f847"),
-            Web3.to_checksum_address("0xD331010e5df71DbA03De892cd3C14E436111aCAD"),
-            Web3.to_checksum_address("0x1a77842DB300E6804a360bE7463c571a6feBC806"),
-            Web3.to_checksum_address("0x0148063fbec76D41F1bA19Ec2efc2C0111452C9c"),
-            Web3.to_checksum_address("0x854b0faF9C3f8285c5855f9138619F879E53CA8B"),
-            Web3.to_checksum_address("0xdeFe69D19884d69e2D3bCE86696764736BE97657"),
-            Web3.to_checksum_address("0x6fb9bAf844dfc39023Ef30C1BAeda239C35000F7"),
-            Web3.to_checksum_address("0xd1c04db9bba40d59b397b2c1a050247fbbc49b68"),
-            Web3.to_checksum_address("0xcc77aa5e5599af505d339db0a0684a813b182cb9"),
-            Web3.to_checksum_address("0x11bdd0a3a481268dd9fa0ab6506bf7774972d7b9"),
-            Web3.to_checksum_address("0x4f19f84c022743c4efe10bca5b129147032e9bb3"),
-            Web3.to_checksum_address("0xd03f427b6211cf0fedf8dd2ee7658c4090c9cf67"),
-            Web3.to_checksum_address("0xe715c633289e2edf6d14376d9b1f8b9b0e96d68c"),
-            Web3.to_checksum_address("0x3609a560e9edc0530e815aba56732da436858e11"),
-            Web3.to_checksum_address("0x1c196d4f046efc444554c540c56cc2e6ee45d691"),
-            Web3.to_checksum_address("0x20074705094166207340d059da119a696c49bdad"),
-            Web3.to_checksum_address("0x31c79fc17c5528a6f81c51033a4a36a8e288f36a"),
-            Web3.to_checksum_address("0x9452e7b67c4c43e4efb80fb219748a31dbb6b553"),
-            Web3.to_checksum_address("0x72c6a0c5040c6eaa7828dd8b8613e07552b3d59b"),
-            Web3.to_checksum_address("0xd51367d70aeaf2447e5df1a7922a0ed3105f0d04"),
-            Web3.to_checksum_address("0xde731fb8bcb00955fa1b658210485c487547885e"),
-            Web3.to_checksum_address("0xcf3f7a5e0140d1d7c263f24d2c2d757102912c33"),
-            Web3.to_checksum_address("0x6471256e9fdb6c68caa8ae62c01b51b9e1a46bc9"),
-            Web3.to_checksum_address("0x8c7423b3db24a2c679a9f317550b3e793a10197d"),
-            Web3.to_checksum_address("0xde7ad7a2f133895624e7602517dd4b4b139d7bb9"),
-            Web3.to_checksum_address("0x4dcda6a15783b5e302349d738030079b6342e54a"),
-            Web3.to_checksum_address("0x48c3f03f77668da8c76486d5fcaab43c81ada32e")
-        ]
+        # Load contract targets from CSV file
+        try:
+            import csv
+            import os
+            
+            # Get the directory of the current script
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            csv_path = os.path.join(script_dir, "big-contracts.csv")
+            
+            # Default to 100 contracts if not specified
+            max_contracts = int(os.getenv('MAX_CONTRACTS', '100'))
+            
+            contract_targets = []
+            with open(csv_path, 'r') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    if len(contract_targets) >= max_contracts:
+                        break
+                    contract_targets.append(Web3.to_checksum_address(row['address']))
+            
+            logger.info(f"Loaded {len(contract_targets)} contracts from {csv_path}")
+            
+        except Exception as e:
+            logger.error(f"Error loading contracts from CSV: {e}")
+            logger.error("Falling back to hardcoded contract list")
+            # Fallback to hardcoded list if CSV loading fails
+            contract_targets = [
+                Web3.to_checksum_address("0x1908D2bD020Ba25012eb41CF2e0eAd7abA1c48BC"),
+                # ... rest of the hardcoded addresses ...
+            ]
         
         # Debug print addresses
         logger.info(f"Contract targets: {contract_targets}")
@@ -1013,28 +990,30 @@ class ZKarnage:
         data = function_selector + encoded_data.hex()
         logger.info(f"Complete transaction data: {data[:64]}...")
         
-        # Set much more competitive fees for Flashbots
-        # Base fee plus a significant premium to ensure inclusion
-        # Set higher priority fee if the account does NOT have high priority status
-        # If we already have high priority status, we can use a more reasonable fee
-        if is_high_priority:
-            max_priority_fee = Web3.to_wei(0.3, 'gwei')  # Lower fee for high priority accounts
-            max_fee_per_gas = base_fee + Web3.to_wei(3, 'gwei')
-            logger.info("Using standard priority fee (high priority account)")
-        else:
-            max_priority_fee = Web3.to_wei(0.3, 'gwei')  # Much higher fee for non-high priority accounts
-            max_fee_per_gas = base_fee + Web3.to_wei(3, 'gwei')  # Ensure max fee > priority fee
-            logger.info("Using increased priority fee to compensate for standard priority status")
+        # Set standard fees
+        max_priority_fee = Web3.to_wei(0.1, 'gwei')  # Standard priority fee
+        max_fee_per_gas = base_fee + Web3.to_wei(1, 'gwei')  # Base fee plus 1 gwei
         
-        logger.info(f"Using competitive fees - Max Fee: {Web3.from_wei(max_fee_per_gas, 'gwei')} gwei, " 
+        logger.info(f"Using standard fees - Max Fee: {Web3.from_wei(max_fee_per_gas, 'gwei')} gwei, " 
                    f"Priority Fee: {Web3.from_wei(max_priority_fee, 'gwei')} gwei")
+        
+        # Calculate gas limit based on number of contracts
+        # Base cost of 86k gas for 12 contracts = ~7,167 gas per contract
+        gas_per_contract = 7167
+        num_contracts = len(contract_targets)
+        gas_limit = gas_per_contract * num_contracts
+        
+        # Add some buffer (20%) to account for variations
+        gas_limit = int(gas_limit * 1.2)
+        
+        logger.info(f"Calculated gas limit: {gas_limit} (based on {num_contracts} contracts)")
         
         # Create transaction dictionary with all required fields
         tx = {
             'type': 2,  # EIP-1559 transaction
             'to': self.contract_address,
             'from': self.account.address,
-            'gas': 500_000,
+            'gas': gas_limit,
             'value': 0,  # Important to set explicitly
             'maxFeePerGas': max_fee_per_gas,
             'maxPriorityFeePerGas': max_priority_fee,
