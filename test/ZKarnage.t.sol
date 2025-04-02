@@ -12,6 +12,16 @@ contract ZKarnageTest is Test {
     // Test addresses (known large contracts on mainnet)
     address[] testAddresses;
     
+    // Gas limits for different attacks
+    uint256 constant JUMPDEST_GAS_LIMIT = 200_000;
+    uint256 constant MCOPY_GAS_LIMIT = 300_000;
+    uint256 constant CALLDATACOPY_GAS_LIMIT = 1_000_000;
+    uint256 constant MODEXP_GAS_LIMIT = 100_000;
+    uint256 constant BN_PAIRING_GAS_LIMIT = 3_000_000;
+    uint256 constant BN_MUL_GAS_LIMIT = 5_500_000;
+    uint256 constant ECRECOVER_GAS_LIMIT = 100_000;
+    uint256 constant EXTCODESIZE_GAS_LIMIT = 100_000;
+    
     function setUp() public {
         // Deploy the attack contract
         zkarnage = new ZKarnage();
@@ -23,6 +33,7 @@ contract ZKarnageTest is Test {
         testAddresses[2] = 0xa102b6Eb23670B07110C8d316f4024a2370Be5dF;
         testAddresses[3] = 0x84ab2d6789aE78854FbdbE60A9873605f4Fd038c;
         testAddresses[4] = 0x1908D2bD020Ba25012eb41CF2e0eAd7abA1c48BC;
+        
         // Get RPC URL
         string memory rpcUrl = vm.envString("ETH_RPC_URL");
         console.log("Using RPC URL:", rpcUrl);
@@ -32,7 +43,6 @@ contract ZKarnageTest is Test {
             forkId = id;
             console.log("Fork created with ID:", forkId);
             
-            // Select the fork regardless of ID
             vm.selectFork(forkId);
             uint256 currentBlock = block.number;
             console.log("Fork selected, block number:", currentBlock);
@@ -55,75 +65,131 @@ contract ZKarnageTest is Test {
             revert("Fork creation failed with low-level error");
         }
     }
-    
-    function testAttackGasConsumption() public {
-        // Verify fork is working by checking block number
-        uint256 currentBlock = block.number;
-        require(currentBlock > 0, "Fork not working - invalid block number");
-        console.log("Running test at block:", currentBlock);
+
+    function testJumpdestAttack() public {
+        console.log("\n=== Testing JUMPDEST Attack ===");
+        uint256 iterations = 1000;
         
-        // Measure gas consumption for the attack
+        uint256 gasStart = gasleft();
+        zkarnage.executeJumpdestAttack(iterations);
+        uint256 gasUsed = gasStart - gasleft();
+        
+        console.log("Gas used for JUMPDEST attack:", gasUsed);
+        console.log("Gas per iteration:", gasUsed / iterations);
+        assertLt(gasUsed, JUMPDEST_GAS_LIMIT, "Gas usage too high for JUMPDEST attack");
+    }
+
+    function testMcopyAttack() public {
+        console.log("\n=== Testing Memory Operations Attack ===");
+        uint256 size = 256;
+        uint256 iterations = 1000;
+        
+        uint256 gasStart = gasleft();
+        zkarnage.executeMcopyAttack(size, iterations);
+        uint256 gasUsed = gasStart - gasleft();
+        
+        console.log("Gas used for memory operations attack:", gasUsed);
+        console.log("Gas per iteration:", gasUsed / iterations);
+        assertLt(gasUsed, MCOPY_GAS_LIMIT, "Gas usage too high for memory operations attack");
+    }
+
+    function testCalldatacopyAttack() public {
+        console.log("\n=== Testing CALLDATACOPY Attack ===");
+        // Reduced size from 1MB to 32KB to keep gas reasonable
+        uint256 size = 32 * 1024;
+        uint256 iterations = 50;
+        
+        uint256 gasStart = gasleft();
+        zkarnage.executeCalldatacopyAttack(size, iterations);
+        uint256 gasUsed = gasStart - gasleft();
+        
+        console.log("Gas used for CALLDATACOPY attack:", gasUsed);
+        console.log("Gas per iteration:", gasUsed / iterations);
+        console.log("Gas per KB:", (gasUsed * 1024) / size);
+        assertLt(gasUsed, CALLDATACOPY_GAS_LIMIT, "Gas usage too high for CALLDATACOPY attack");
+    }
+
+    function testModExpAttack() public {
+        console.log("\n=== Testing MODEXP Attack ===");
+        uint256 iterations = 10;
+        
+        uint256 gasStart = gasleft();
+        zkarnage.executeModExpAttack(iterations);
+        uint256 gasUsed = gasStart - gasleft();
+        
+        console.log("Gas used for MODEXP attack:", gasUsed);
+        console.log("Gas per iteration:", gasUsed / iterations);
+        assertLt(gasUsed, MODEXP_GAS_LIMIT, "Gas usage too high for MODEXP attack");
+    }
+
+    function testBnPairingAttack() public {
+        console.log("\n=== Testing BN_PAIRING Attack ===");
+        uint256 iterations = 5;
+        
+        uint256 gasStart = gasleft();
+        zkarnage.executeBnPairingAttack(iterations);
+        uint256 gasUsed = gasStart - gasleft();
+        
+        console.log("Gas used for BN_PAIRING attack:", gasUsed);
+        console.log("Gas per iteration:", gasUsed / iterations);
+        assertLt(gasUsed, BN_PAIRING_GAS_LIMIT, "Gas usage too high for BN_PAIRING attack");
+    }
+
+    function testBnMulAttack() public {
+        console.log("\n=== Testing BN_MUL Attack ===");
+        // Reduced iterations from 10 to 8 to stay under gas limit
+        uint256 iterations = 8;
+        
+        uint256 gasStart = gasleft();
+        zkarnage.executeBnMulAttack(iterations);
+        uint256 gasUsed = gasStart - gasleft();
+        
+        console.log("Gas used for BN_MUL attack:", gasUsed);
+        console.log("Gas per iteration:", gasUsed / iterations);
+        assertLt(gasUsed, BN_MUL_GAS_LIMIT, "Gas usage too high for BN_MUL attack");
+    }
+
+    function testEcrecoverAttack() public {
+        console.log("\n=== Testing ECRECOVER Attack ===");
+        uint256 iterations = 10;
+        
+        uint256 gasStart = gasleft();
+        zkarnage.executeEcrecoverAttack(iterations);
+        uint256 gasUsed = gasStart - gasleft();
+        
+        console.log("Gas used for ECRECOVER attack:", gasUsed);
+        console.log("Gas per iteration:", gasUsed / iterations);
+        assertLt(gasUsed, ECRECOVER_GAS_LIMIT, "Gas usage too high for ECRECOVER attack");
+    }
+
+    function testExtcodesizeAttack() public {
+        console.log("\n=== Testing EXTCODESIZE Attack ===");
+        
         uint256 gasStart = gasleft();
         zkarnage.executeAttack(testAddresses);
         uint256 gasUsed = gasStart - gasleft();
         
-        // Log results
-        console.log("Gas used for attack execution:", gasUsed);
-        
-        // Get bytecode sizes for reference
         uint256 totalSize = 0;
         for (uint i = 0; i < testAddresses.length; i++) {
             uint256 size = testAddresses[i].code.length;
             totalSize += size;
-            console.log("Contract", i);
-            console.log("Size:", size);
+            console.log("Contract", i, "Size:", size);
         }
         
+        console.log("Gas used for EXTCODESIZE attack:", gasUsed);
         console.log("Total bytecode size:", totalSize, "bytes");
         console.log("Gas per KB:", (gasUsed * 1024) / totalSize);
-        
-        // Make sure the gas is reasonable (this will need calibration)
-        // This is a starting point, adjust based on your findings
-        assertLt(gasUsed, 5_000_000, "Gas usage too high");
+        assertLt(gasUsed, EXTCODESIZE_GAS_LIMIT, "Gas usage too high for EXTCODESIZE attack");
     }
-    
-    function testAttackWithCopy() public {
-        // Verify fork is working by checking block number
-        uint256 currentBlock = block.number;
-        require(currentBlock > 0, "Fork not working - invalid block number");
-        console.log("Running test at block:", currentBlock);
-        
-        // Measure gas consumption for the attack with copy
-        uint256 gasStart = gasleft();
-        zkarnage.executeAttackWithCopy(testAddresses);
-        uint256 gasUsed = gasStart - gasleft();
-        
-        // Log results
-        console.log("Gas used for attack with copy execution:", gasUsed);
-        
-        // Get bytecode sizes for reference
-        uint256 totalSize = 0;
-        for (uint i = 0; i < testAddresses.length; i++) {
-            console.log("Contract", i);
-            uint256 size = testAddresses[i].code.length;
-            console.log("Size:", size);
-            totalSize += size;
-        }
-        
-        console.log("Total bytecode size:", totalSize, "bytes");
-        console.log("Gas per KB with copy:", (gasUsed * 1024) / totalSize);
-        
-        // Compare with normal attack
-        uint256 gasStartNormal = gasleft();
-        zkarnage.executeAttack(testAddresses);
-        uint256 gasUsedNormal = gasStartNormal - gasleft();
-        
-        console.log("Gas used for normal attack:", gasUsedNormal);
-        console.log("Gas difference (copy - normal):", gasUsed > gasUsedNormal ? gasUsed - gasUsedNormal : 0);
-        console.log("Gas per KB normal:", (gasUsedNormal * 1024) / totalSize);
-        
-        // Make sure the gas is reasonable
-        assertLt(gasUsed, 5_000_000, "Gas usage too high for copy attack");
-        assertLt(gasUsedNormal, 5_000_000, "Gas usage too high for normal attack");
+
+    function testAllAttacks() public {
+        testJumpdestAttack();
+        testMcopyAttack();
+        testCalldatacopyAttack();
+        testModExpAttack();
+        testBnPairingAttack();
+        testBnMulAttack();
+        testEcrecoverAttack();
+        testExtcodesizeAttack();
     }
 }

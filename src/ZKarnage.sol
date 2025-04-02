@@ -64,8 +64,13 @@ contract ZKarnage {
         
         assembly {
             for { let i := 0 } lt(i, iterations) { i := add(i, 1) } {
-                // Perform memory copies
-                mcopy(add(data, 32), add(data, 64), sub(size, 64))
+                // Perform memory operations using mstore/mload
+                let value := mload(add(data, 64))
+                mstore(add(data, 32), value)
+                value := mload(add(data, 96))
+                mstore(add(data, 64), value)
+                value := mload(add(data, 128))
+                mstore(add(data, 96), value)
             }
         }
         

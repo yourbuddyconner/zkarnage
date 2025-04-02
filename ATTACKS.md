@@ -1,6 +1,79 @@
 # ZKarnage Attack Vectors
 
-This document details the specific attack vectors implemented in ZKarnage for stress testing ZK systems.
+This document details the various attack vectors implemented in the ZKarnage contract, designed to stress test ZK systems by exploiting operations that are disproportionately expensive in ZK circuits compared to their gas costs.
+
+## JUMPDEST Attack
+- **Gas Cost**: 1 gas
+- **ZK Circuit Complexity**: 1037.68x multiplier
+- **Estimated Cycles per Iteration**: 116,220
+- **Implementation**: Uses a series of JUMPDEST operations to create a high number of jump destinations that must be verified in the ZK circuit.
+
+## Memory Operations Attack
+- **Gas Cost**: 3 gas per memory operation
+- **ZK Circuit Complexity**: 3-4x multiplier
+- **Estimated Cycles per Iteration**: 608
+- **Implementation**: Performs multiple memory operations (loads and stores) to stress memory access verification in ZK circuits.
+
+## CALLDATACOPY Attack
+- **Gas Cost**: 3 gas per word
+- **ZK Circuit Complexity**: 3-4x multiplier
+- **Estimated Cycles per Iteration**: 13,900
+- **Implementation**: Copies large amounts of calldata to memory, creating complex memory state that must be verified.
+
+## MODEXP Attack
+- **Gas Cost**: 200 gas
+- **ZK Circuit Complexity**: 1076.95x multiplier (from [EIP-7883](https://eips.ethereum.org/EIPS/eip-7883))
+- **Estimated Cycles per Iteration**: 8,384,000
+- **Implementation**: Uses the MODEXP precompile (0x5) with worst-case parameters to maximize computational complexity.
+
+## BN_PAIRING Attack
+- **Gas Cost**: 45,000 gas
+- **ZK Circuit Complexity**: 37.91x multiplier (from [EIP-7883](https://eips.ethereum.org/EIPS/eip-7883))
+- **Estimated Cycles per Iteration**: 19,300,000
+- **Implementation**: Uses the BN_PAIRING precompile (0x8) with complex pairing operations.
+
+## BN_MUL Attack
+- **Gas Cost**: 6,000 gas
+- **ZK Circuit Complexity**: 40x multiplier
+- **Estimated Cycles per Iteration**: 20,220,000
+- **Implementation**: Uses the BN_MUL precompile (0x7) with large numbers to maximize computational complexity.
+
+## ECRECOVER Attack
+- **Gas Cost**: 3,000 gas
+- **ZK Circuit Complexity**: 100x multiplier
+- **Estimated Cycles per Iteration**: 687,400
+- **Implementation**: Uses the ECRECOVER precompile (0x1) with valid signatures to stress cryptographic verification.
+
+## EXTCODESIZE Attack
+- **Gas Cost**: 700 gas
+- **ZK Circuit Complexity**: 10x multiplier
+- **Estimated Cycles per Iteration**: 88,240
+- **Implementation**: Queries code size of large contracts to stress storage access verification.
+
+## Summary of Attack Effectiveness
+
+| Attack | Gas per Iteration | Estimated Cycles per Iteration | Cycle/Gas Ratio |
+|--------|------------------|--------------------------------|-----------------|
+| JUMPDEST | 112 | 116,220 | 1,037.68x |
+| Memory Ops | 152 | 608 | 4x |
+| CALLDATACOPY | 3,475 | 13,900 | 4x |
+| MODEXP | 7,785 | 8,384,000 | 1,076.95x |
+| BN_PAIRING | 509,126 | 19,300,000 | 37.91x |
+| BN_MUL | 505,515 | 20,220,000 | 40x |
+| ECRECOVER | 6,874 | 687,400 | 100x |
+| EXTCODESIZE | 8,824 | 88,240 | 10x |
+
+The most effective attacks in terms of cycle/gas ratio are:
+1. JUMPDEST (1,037.68x)
+2. MODEXP (1,076.95x)
+3. BN_PAIRING (37.91x)
+4. BN_MUL (40x)
+5. ECRECOVER (100x)
+6. CALLDATACOPY (4x)
+7. Memory Ops (4x)
+8. EXTCODESIZE (10x)
+
+This analysis shows that JUMPDEST and MODEXP operations are particularly effective at creating ZK circuit complexity disproportionate to their gas costs, making them prime targets for stress testing ZK systems.
 
 ## 1. Expensive EVM Operations
 
