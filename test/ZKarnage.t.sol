@@ -3,10 +3,10 @@ pragma solidity ^0.8.19;
 
 import {Test} from "../lib/forge-std/src/Test.sol";
 import {console} from "../lib/forge-std/src/console.sol";
-import "../src/WorstCaseAttack.sol";
+import "../src/ZKarnage.sol";
 
-contract WorstCaseAttackTest is Test {
-    WorstCaseAttack public attackContract;
+contract ZKarnageTest is Test {
+    ZKarnage public zkarnage;
     uint256 public forkId;
     
     // Test addresses (known large contracts on mainnet)
@@ -14,7 +14,7 @@ contract WorstCaseAttackTest is Test {
     
     function setUp() public {
         // Deploy the attack contract
-        attackContract = new WorstCaseAttack();
+        zkarnage = new ZKarnage();
         
         // Set up test addresses (using a few known contracts)
         testAddresses = new address[](5);
@@ -64,7 +64,7 @@ contract WorstCaseAttackTest is Test {
         
         // Measure gas consumption for the attack
         uint256 gasStart = gasleft();
-        attackContract.executeAttack(testAddresses);
+        zkarnage.executeAttack(testAddresses);
         uint256 gasUsed = gasStart - gasleft();
         
         // Log results
@@ -95,7 +95,7 @@ contract WorstCaseAttackTest is Test {
         
         // Measure gas consumption for the attack with copy
         uint256 gasStart = gasleft();
-        attackContract.executeAttackWithCopy(testAddresses);
+        zkarnage.executeAttackWithCopy(testAddresses);
         uint256 gasUsed = gasStart - gasleft();
         
         // Log results
@@ -115,7 +115,7 @@ contract WorstCaseAttackTest is Test {
         
         // Compare with normal attack
         uint256 gasStartNormal = gasleft();
-        attackContract.executeAttack(testAddresses);
+        zkarnage.executeAttack(testAddresses);
         uint256 gasUsedNormal = gasStartNormal - gasleft();
         
         console.log("Gas used for normal attack:", gasUsedNormal);
@@ -126,4 +126,4 @@ contract WorstCaseAttackTest is Test {
         assertLt(gasUsed, 5_000_000, "Gas usage too high for copy attack");
         assertLt(gasUsedNormal, 5_000_000, "Gas usage too high for normal attack");
     }
-} 
+}

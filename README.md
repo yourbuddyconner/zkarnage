@@ -53,9 +53,7 @@ function executeAttack(address[] calldata targets) external {
     
     for (uint256 i = 0; i < targets.length; i++) {
         address target = targets[i];
-        
-        // Force the EVM to load the contract bytecode via EXTCODESIZE
-        uint256 size = target.code.length;
+        uint256 size = target.code.length;  // Forces EXTCODESIZE
         totalSize += size;
         
         emit ContractAccessed(target, size);
@@ -89,46 +87,32 @@ targets[4] = 0xE233472882bf7bA6fd5E24624De7670013a079C1;
 targets[5] = 0xd3A3d92dbB569b6cd091c12fAc1cDfAEB8229582;
 ```
 
-### Future Improvements
-1. **Contract Selection**: Expand target list to include more large contracts
-2. **Operation Mixing**: Combine with other expensive ZK operations
-3. **Timing Optimization**: Target specific blocks for maximum impact
-4. **Gas Efficiency**: Further optimize gas usage while maintaining ZK complexity
+## System Architecture
+
+The ZKarnage system is composed of several architectural components that work together:
+
+1. **Smart Contract**: The Solidity contract implementing the EXTCODESIZE attack vector
+2. **Python Orchestration**: A comprehensive Python script that handles deployment, transaction creation, and Flashbots submission
+3. **Bundle Management**: Strategies for ensuring transaction inclusion in target blocks
+4. **Contract Targeting**: Selection of optimal contracts to maximize ZK circuit complexity
 
 ## Project Structure
 
 ```
 zkarnage/
-├── src/                    # Source code
-│   ├── WorstCaseAttack.sol    # Main attack contract implementation
-│   └── AddressList.sol        # Library containing target contract addresses
-├── script/                 # Deployment and execution scripts
-│   ├── DeployAttack.s.sol     # Deploy the attack contract
-│   ├── ExecuteAttack.s.sol    # Execute the attack with target addresses
-│   ├── CheckSizes.s.sol       # Verify bytecode sizes of target contracts
-│   ├── DeployAndAttack.s.sol  # Combined deploy & attack script
-│   ├── FlashbotsSubmit.s.sol  # Prepare transaction data for Flashbots
-│   └── submit_bundle.py       # Python script for Flashbots bundle submission
-├── test/                  # Test files
-│   └── WorstCaseAttack.t.sol  # Tests for attack contract functionality
-├── out/                   # Output files
-│   └── flashbots_data.json    # Flashbots transaction data
-├── broadcast/             # Deployment transaction data
-├── lib/                   # Dependencies
-│   └── forge-std/            # Foundry standard library
-├── .env.example          # Example environment variables
-├── foundry.toml          # Foundry configuration
-├── requirements.txt      # Python dependencies
-└── README.md            # This file
+├── src/                  # Source code
+│   ├── ZKarnage.sol         # Main attack contract implementation
+│   └── AddressList.sol      # Library containing target contract addresses
+├── script/               # Deployment and execution scripts
+│   ├── DeployZKarnage.s.sol # Deploy the attack contract
+│   └── run_attack.py        # Python orchestration script for Flashbots bundles
+├── test/                # Test files
+│   └── ZKarnage.t.sol      # Tests for attack contract functionality
+├── design.md            # Detailed design document
+├── foundry.toml         # Foundry configuration
+├── requirements.txt     # Python dependencies
+└── README.md           # This file
 ```
-
-### Key Components
-
-- **Attack Contract**: Implements the EXTCODESIZE-based attack vector
-- **Address Library**: Maintains list of target contracts with large bytecode
-- **Deployment Scripts**: Handle contract deployment and attack execution
-- **Flashbots Integration**: Ensures transaction inclusion in target blocks
-- **Test Suite**: Validates attack effectiveness and gas consumption
 
 ## Setup
 
@@ -157,52 +141,58 @@ zkarnage/
    # - ETH_RPC_URL: Your Ethereum node URL
    # - PRIVATE_KEY: Your private key (without 0x prefix)
    # - FLASHBOTS_RELAY_URL: Optional custom Flashbots relay URL
+   # - ZKARNAGE_CONTRACT_ADDRESS: Deployed contract address (if exists)
    ```
 
 ## Usage
 
-### Check Contract Sizes
+### Deploy Contract
 
-To verify the size of the target contracts:
-
-```bash
-forge script script/CheckSizes.s.sol --rpc-url $ETH_RPC_URL
-```
-
-### Submit Attack Bundle to Flashbots
-
-To submit the attack bundle to Flashbots:
-
-1. First, generate the transaction data:
-```bash
-forge script script/FlashbotsSubmit.s.sol --rpc-url $ETH_RPC_URL
-```
-
-2. Then submit the bundle to Flashbots:
-```bash
-python3 script/submit_bundle.py
-```
-
-The Python script will:
-- Read the transaction data from the Foundry output
-- Sign and package the transaction into a Flashbots bundle
-- Submit the bundle to the Flashbots relay
-- Wait for and report bundle inclusion status
-
-You can target a specific block by setting the `TARGET_BLOCK` environment variable:
-```bash
-TARGET_BLOCK=1234567 forge script script/FlashbotsSubmit.s.sol --rpc-url $ETH_RPC_URL
-```
-
-### Deploy and Execute Normally (Non-Flashbots)
-
-For testing or if you don't need Flashbots, you can deploy and execute the attack directly:
+To deploy the ZKarnage contract:
 
 ```bash
-forge script script/DeployAndAttack.s.sol --rpc-url $ETH_RPC_URL --broadcast
+forge script script/DeployZKarnage.s.sol --rpc-url $ETH_RPC_URL --broadcast
 ```
 
-## Testing
+### Run Attack Script
+
+The Python script handles Flashbots bundle submission for executing the attack:
+
+```bash
+python script/run_attack.py [--fast]
+```
+
+The script provides:
+- Automatic targeting of blocks divisible by 100
+- Flashbots bundle creation and submission
+- Dynamic fee adjustment based on account priority status
+- Real-time bundle status monitoring
+- Detailed logging of attack execution
+
+Options:
+- `--fast`: Target block 2 blocks ahead (for testing) instead of waiting for hundred-blocks
+- Without flags: Continuously attempts attack on hundred-blocks until successful
+
+Features:
+- Automatic logging to timestamped files in `logs/` directory
+- Dynamic gas pricing based on Flashbots account priority
+- Bundle simulation before submission
+- Real-time monitoring of bundle status and builder consideration
+- Transaction confirmation verification
+- Graceful error handling and retries
+
+Example log output:
+```
+2024-01-01 12:00:00 - INFO - Preparing ZKarnage attack
+2024-01-01 12:00:00 - INFO - Current block: 1234567
+2024-01-01 12:00:00 - INFO - Target block: 1234600
+2024-01-01 12:00:00 - INFO - Checking Flashbots user stats and reputation...
+2024-01-01 12:00:01 - INFO - Bundle simulation successful
+2024-01-01 12:00:02 - INFO - Bundle submitted successfully
+2024-01-01 12:00:03 - INFO - Bundle sealed by 3 builders
+```
+
+### Testing
 
 Run the tests to measure gas consumption and effectiveness:
 
@@ -227,26 +217,6 @@ test_timeout = 100000 # Increased timeout for fork tests
 mainnet = "${ETH_RPC_URL}"
 ```
 
-### Test Results
-
-The tests measure gas consumption for two attack variants:
-
-1. Normal Attack:
-   - Gas usage: ~39,000 gas
-   - Gas per KB: ~408 gas/KB
-   - Total bytecode loaded: 98,304 bytes (4 contracts × 24,576 bytes)
-
-2. Attack with Copy:
-   - Gas usage: ~40,000 gas
-   - Gas per KB: ~420 gas/KB
-   - Additional overhead: ~25,700 gas compared to normal attack
-
-Both attack variants successfully load and process large contract bytecode while staying well under the block gas limit. The tests verify:
-- Successful mainnet forking
-- Access to contract bytecode
-- Gas consumption measurements
-- Comparison between attack variants
-
 ## Network Resilience Testing
 
 This project demonstrates an important principle for decentralized networks:
@@ -267,10 +237,10 @@ This project is licensed under MIT.
 If you use this work in your research, please cite it as:
 
 ```bibtex
-@software{zkarnage2024,
+@software{zkarnage2025,
   author = {Swann, Conner},
   title = {ZKarnage: Stress Testing ZK Systems Through Maximum Pain},
-  year = {2024},
+  year = {2025},
   publisher = {GitHub},
   url = {https://github.com/yourbuddyconner/zkarnage}
 }

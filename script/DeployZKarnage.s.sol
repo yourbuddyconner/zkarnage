@@ -3,9 +3,9 @@ pragma solidity ^0.8.19;
 
 import {Script} from "../lib/forge-std/src/Script.sol";
 import {console} from "../lib/forge-std/src/console.sol";
-import "../src/WorstCaseAttack.sol";
+import "../src/ZKarnage.sol";
 
-contract DeployAttackScript is Script {
+contract DeployZKarnageScript is Script {
     function run() external {
         // Fetch private key from environment variable
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
@@ -14,11 +14,11 @@ contract DeployAttackScript is Script {
         vm.startBroadcast(deployerPrivateKey);
         
         // Deploy the attack contract
-        WorstCaseAttack attackContract = new WorstCaseAttack();
+        ZKarnage zkarnage = new ZKarnage();
         
         // Log the deployed contract
-        console.log("Attack contract deployed at:", address(attackContract));
+        console.log("ZKarnage contract deployed at:", address(zkarnage));
         
         vm.stopBroadcast();
     }
-} 
+}

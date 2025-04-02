@@ -18,3 +18,8 @@ transaction_data.txt
 target_block.txt
 contract_address.txt
 broadcast/
+
+**__pycache__/**
+**__pycache__
+**logs/**
+*.log
