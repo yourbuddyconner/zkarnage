@@ -10,9 +10,13 @@ contract ZKarnage {
         
         for (uint256 i = 0; i < targets.length; i++) {
             address target = targets[i];
-            uint256 size = target.code.length;  // Forces EXTCODESIZE
-            totalSize += size;
+            uint256 size;
             
+            assembly {
+                size := extcodesize(target)
+            }
+            
+            totalSize += size;
             emit ContractAccessed(target, size);
         }
         

