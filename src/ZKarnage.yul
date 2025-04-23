@@ -27,28 +27,12 @@ object "ZKarnage" {
         // Store the result value (if any)
         let i := 0
 
-        // *** DEBUG LOGGING START ***
-        // Log the initial gas and limit values before entering the specific handler
-        let initial_gas := gas()
-        mstore(0, 0x494E49545F4741533A0000000000000000000000000000000000000000000000) // "INIT_GAS:"
-        log1(0, 32, initial_gas)
-        mstore(0, 0x494E49545F4C494D49543A000000000000000000000000000000000000000000) // "INIT_LIMIT:"
-        log1(0, 32, limit)
-        // *** DEBUG LOGGING END ***
-
         // Handle different operation types
         switch op_code
         
         // KECCAK256 Handler (0x0003)
         case 0x0003 {
           mstore(0, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
-          // *** DEBUG LOGGING START ***
-          let pre_loop_gas_k := gas()
-          mstore(0, 0x4B5F4741533A0000000000000000000000000000000000000000000000000000) // "K_GAS:"
-          log1(0, 32, pre_loop_gas_k)
-          mstore(0, 0x4B5F4C494D49543A000000000000000000000000000000000000000000000000) // "K_LIMIT:"
-          log1(0, 32, limit)
-          // *** DEBUG LOGGING END ***
           for {} gt(gas(), limit) {} {
             // Input is modified slightly each iteration to avoid optimizations
             mstore(0, not(mload(0)))
@@ -63,13 +47,6 @@ object "ZKarnage" {
           // Set up memory with test data
           mstore(0, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
           mstore(32, 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee)
-          // *** DEBUG LOGGING START ***
-          let pre_loop_gas_s := gas()
-          mstore(0, 0x535F4741533A0000000000000000000000000000000000000000000000000000) // "S_GAS:"
-          log1(0, 32, pre_loop_gas_s)
-          mstore(0, 0x535F4C494D49543A000000000000000000000000000000000000000000000000) // "S_LIMIT:"
-          log1(0, 32, limit)
-          // *** DEBUG LOGGING END ***
           for {} gt(gas(), limit) {} {
             // Modify input data slightly each iteration
             mstore(0, not(mload(0)))
@@ -88,13 +65,6 @@ object "ZKarnage" {
           mstore(32, 28) // v
           mstore(64, 0x9242685bf161793cc25603c231bc2f568eb630ea16aa137d2664ac8038825608) // r
           mstore(96, 0x4f8ae3bd7535248d0bd448298cc2e2071e56992d0774dc340c368ae950852ada) // s
-          // *** DEBUG LOGGING START ***
-          let pre_loop_gas_e := gas()
-          mstore(0, 0x455F4741533A0000000000000000000000000000000000000000000000000000) // "E_GAS:"
-          log1(0, 32, pre_loop_gas_e)
-          mstore(0, 0x455F4C494D49543A000000000000000000000000000000000000000000000000) // "E_LIMIT:"
-          log1(0, 32, limit)
-          // *** DEBUG LOGGING END ***
           for {} gt(gas(), limit) {} {
             // Call ecrecover precompile (address 0x1)
             pop(staticcall(gas(), 0x1, 0, 128, 160, 32))
@@ -119,13 +89,6 @@ object "ZKarnage" {
           mstore(128, 0x8fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
           // Modulus = random large prime-like number
           mstore(160, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff43)
-           // *** DEBUG LOGGING START ***
-          let pre_loop_gas_m := gas()
-          mstore(0, 0x4D5F4741533A0000000000000000000000000000000000000000000000000000) // "M_GAS:"
-          log1(0, 32, pre_loop_gas_m)
-          mstore(0, 0x4D5F4C494D49543A000000000000000000000000000000000000000000000000) // "M_LIMIT:"
-          log1(0, 32, limit)
-          // *** DEBUG LOGGING END ***
           for {} gt(gas(), limit) {} {
             // Call ModExp precompile (address 0x5)
             pop(staticcall(gas(), 0x5, 0, 192, 192, 32))
@@ -141,10 +104,7 @@ object "ZKarnage" {
           revert(0, 0x20)
         }
 
-        // Done, log and return the result
-        // We use log0 here as a simple way to return the final result (i) stored at mem[0]
-        // It will also appear in the logs which can be helpful.
-        log0(0, 32)
+        // Return the result
         return(0, 32)
       }
 
