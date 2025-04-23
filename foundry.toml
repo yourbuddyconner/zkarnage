@@ -7,6 +7,7 @@ evm_version = "paris"  # or "shanghai" or "cancun" depending on your needs
 ffi = true
 # Increase the default timeout for tests
 test_timeout = 100000
+gas_reports = ["ZKarnageYul"]
 
 fs_permissions = [{ access = "read-write", path = "./"}]
 

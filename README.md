@@ -10,6 +10,8 @@ This project implements worst-case attacks on Ethereum provers, specifically tar
 ![circuit header](zkarnage.png)
 
 > Credit: Original attack vector concept by [@ignaciohagopian](https://x.com/ignaciohagopian) from the Ethereum Foundation
+>
+> Implementation inspired by [evm-stress.yul](https://github.com/agglayer/e2e/blob/jhilliard/evm-stress-readme/core/contracts/evm-stress/evm-stress.yul) from the [agglayer repository](https://github.com/agglayer/e2e/blob/jhilliard/evm-stress-readme/core/contracts/evm-stress/README.org)
 
 ## Background
 
