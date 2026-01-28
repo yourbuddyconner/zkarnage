@@ -2,6 +2,8 @@
 
 This document details the various attack vectors implemented in the ZKarnage contract, designed to stress test ZK systems by exploiting operations that are disproportionately expensive in ZK circuits compared to their gas costs.
 
+> **Paper Reference**: These attack vectors are described in Section 5 (Prover Killer Attack on ZK-Rollups) of [Unaligned Incentives: Pricing Attacks Against Blockchain Rollups](https://arxiv.org/abs/2509.17126). See Figure 6 for cycles-per-gas benchmarks and Figure 8 for attack impact metrics.
+
 ## JUMPDEST Attack
 - **Gas Cost**: 1 gas
 - **ZK Circuit Complexity**: 1037.68x multiplier

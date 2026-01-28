@@ -5,6 +5,8 @@
 
 This project implements worst-case attacks on Ethereum provers, specifically targeting the computational overhead required for generating zero-knowledge proofs for blocks. The attacks exploit various EVM operations and precompiles that are disproportionately expensive in ZK circuits compared to their gas costs.
 
+**Paper**: [Unaligned Incentives: Pricing Attacks Against Blockchain Rollups](https://arxiv.org/abs/2509.17126)
+
 </div>
 
 ![circuit header](zkarnage.png)
@@ -55,18 +57,25 @@ This research serves several important purposes:
 
 ```
 zkarnage/
-├── src/                  # Source code
-│   ├── ZKarnage.sol         # Main attack contract implementation
-│   └── AddressList.sol      # Library containing target contract addresses
-├── script/               # Deployment and execution scripts
-│   ├── DeployZKarnage.s.sol # Deploy the attack contract
-│   └── run_attack.py        # Python orchestration script for Flashbots bundles
-├── test/                # Test files
-│   └── ZKarnage.t.sol      # Tests for attack contract functionality
-├── ATTACKS.md           # Detailed attack vector documentation
-├── foundry.toml         # Foundry configuration
-├── requirements.txt     # Python dependencies
-└── README.md           # This file
+├── src/                      # Source code
+│   ├── ZKarnage.sol             # Main attack contract (Solidity)
+│   ├── ZKarnage.yul             # Low-level attack contract (Yul)
+│   └── AddressList.sol          # Library containing target contract addresses
+├── script/                   # Scripts
+│   ├── DeployZKarnage.s.sol     # Deploy the attack contract
+│   ├── run_attack.py            # Flashbots bundle submission for mainnet attacks
+│   ├── generate_block.py        # Generate prover-killer blocks locally
+│   ├── rsp-bench.py             # RSP benchmark wrapper for cycle measurement
+│   ├── analyze_cycles_per_gas.py # Cycles-per-gas analysis
+│   └── generate_opcode_table.py # Generate benchmark tables
+├── test/                     # Test files
+│   ├── ZKarnage.t.sol           # Tests for Solidity contract
+│   └── ZKarnageYul.t.sol        # Tests for Yul contract
+├── ATTACKS.md                # Detailed attack vector documentation
+├── PAPER_REPLICATION.md      # Instructions for reproducing paper results
+├── foundry.toml              # Foundry configuration
+├── requirements.txt          # Python dependencies
+└── README.md                 # This file
 ```
 
 ## Setup
@@ -79,7 +88,7 @@ zkarnage/
 
 2. Clone this repo:
    ```bash
-   git clone https://github.com/yourbuddyconner/zkarnage
+   git clone https://github.com/ProofLabDev/zkarnage
    cd zkarnage
    ```
 
@@ -178,14 +187,19 @@ This project is licensed under MIT.
 
 ## Citation
 
-If you use this work in your research, please cite it as:
+If you use this work in your research, please cite the paper:
 
 ```bibtex
-@software{zkarnage2025,
-  author = {Swann, Conner},
-  title = {ZKarnage: Stress Testing ZK Systems Through Maximum Pain},
-  year = {2025},
-  publisher = {GitHub},
-  url = {https://github.com/yourbuddyconner/zkarnage}
+@article{chaliasos2025unaligned,
+  title={Unaligned Incentives: Pricing Attacks Against Blockchain Rollups},
+  author={Chaliasos, Stefanos and Swann, Conner and Pilehchiha, Sina and 
+          Mohnblatt, Nicolas and Livshits, Benjamin and Kattis, Assimakis},
+  journal={arXiv preprint arXiv:2509.17126},
+  year={2025},
+  url={https://arxiv.org/abs/2509.17126}
 }
 ```
+
+## Paper Replication
+
+For detailed instructions on reproducing the results from Section 5 (Prover Killer Attack) of the paper, see [PAPER_REPLICATION.md](PAPER_REPLICATION.md).

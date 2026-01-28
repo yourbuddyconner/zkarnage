@@ -23,3 +23,22 @@ broadcast/
 **__pycache__
 **logs/**
 *.log
+
+# Cache files
+.zkarnage_cache.json
+
+# Benchmark data (can be regenerated)
+*.csv
+spot-check_*
+cycles_per_gas_analysis.json
+
+# Generated documentation (can be regenerated)
+DESIGN.md
+CYCLES_PER_GAS_ANALYSIS.md
+MAINNET_EXECUTION_PLAN.md
+benchmark_tables.md
+opcode_benchmark_table.md
+script/README_ANALYZE_CYCLES.md
+
+# Temporary/scratch files
+Untitled-*.sh

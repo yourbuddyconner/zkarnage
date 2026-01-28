@@ -17,6 +17,7 @@ OPERATION_CODES = {
     "sha256": "0x0023",
     "modexp": "0x0027",
     "ecrecover": "0x0021",
+    "pairings": "0x0008",
 }
 
 def parse_args():
@@ -74,6 +75,16 @@ def parse_args():
         default="src/ZKarnage.yul",
         help="Path to the Yul contract (default: src/ZKarnage.yul)",
     )
+    parser.add_argument(
+        "--generate-trace",
+        action="store_true",
+        help="Generate a flame graph trace of the attack transaction",
+    )
+    parser.add_argument(
+        "--keep-rpc-running",
+        action="store_true",
+        help="Keep the Anvil RPC running in interactive mode",
+    )
     args = parser.parse_args()
     
     # Set default output file if not provided
@@ -95,6 +106,8 @@ def start_anvil(rpc_url: str, fork_block: int, port: int) -> subprocess.Popen:
     """Start anvil process forking from the specified block and forward its output"""
     cmd = [
         "anvil",
+        "--steps-tracing",
+        "--no-storage-caching",
         "--fork-url", rpc_url,
         "--fork-block-number", str(fork_block),
         "--port", str(port),
@@ -452,19 +465,92 @@ def save_block_data(blocks: Dict, output_file: str):
     print(f"All blocks saved successfully to {output_path}")
     print(f"Saved data for {len(output_data['blocks'])} blocks with attack block #{attack_block_number}")
 
+def generate_transaction_trace(tx_hash: str, rpc_url: str, attack_type: str):
+    """Generate a flame graph visualization of the transaction execution"""
+    print(f"Generating trace for transaction {tx_hash}...")
+    
+    # Create trace directory if it doesn't exist
+    trace_dir = Path("out") / "traces"
+    trace_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Step 1: Get transaction trace using debug_traceTransaction
+    trace_file = trace_dir / f"trace_{attack_type}_{tx_hash}.json"
+    print(f"Getting transaction trace from RPC...")
+    trace_cmd = [
+        "cast", "rpc", 
+        "--rpc-url", rpc_url, 
+        "debug_traceTransaction", 
+        tx_hash
+    ]
+    
+    with open(trace_file, "w") as f:
+        result = subprocess.run(trace_cmd, stdout=f, stderr=subprocess.PIPE, text=True)
+    
+    if result.returncode != 0:
+        print(f"Error generating transaction trace: {result.stderr}")
+        return False
+    
+    print(f"Transaction trace saved to {trace_file}")
+    
+    # Step 2: Process trace with polycli fold-trace
+    folded_trace_file = trace_dir / f"folded_{attack_type}_{tx_hash}.out"
+    print(f"Processing trace with polygon-cli fold-trace...")
+    
+    fold_cmd = [
+        "polycli", "fold-trace",
+        "--metric", "actualgas"
+    ]
+    
+    with open(trace_file, "r") as infile, open(folded_trace_file, "w") as outfile:
+        result = subprocess.run(fold_cmd, stdin=infile, stdout=outfile, stderr=subprocess.PIPE, text=True)
+    
+    if result.returncode != 0:
+        print(f"Error processing trace with polygon-cli: {result.stderr}")
+        return False
+    
+    print(f"Folded trace saved to {folded_trace_file}")
+    
+    # Step 3: Generate flame graph
+    flamegraph_file = trace_dir / f"flamegraph_{attack_type}_{tx_hash}.svg"
+    print(f"Generating flame graph visualization...")
+    
+    flamegraph_cmd = [
+        "flamegraph.pl",
+        "--title", f"Gas Profile for {tx_hash} ({attack_type.upper()} Attack)",
+        "--width", "1920",
+        "--countname", "gas"
+    ]
+    
+    with open(folded_trace_file, "r") as infile, open(flamegraph_file, "w") as outfile:
+        result = subprocess.run(flamegraph_cmd, stdin=infile, stdout=outfile, stderr=subprocess.PIPE, text=True)
+    
+    if result.returncode != 0:
+        print(f"Error generating flame graph: {result.stderr}")
+        return False
+    
+    print(f"Flame graph visualization saved to {flamegraph_file}")
+    return True
+
 def main():
     args = parse_args()
     
     # Start anvil process
     anvil_process = start_anvil(args.rpc_url, args.fork_block, args.anvil_port)
+    local_rpc_url = f"http://localhost:{args.anvil_port}"
     
+    # Always run the main logic first
+    attack_block_num = None # Initialize variable
+    contract_address = None
+    tx_hash = None
     try:
-        local_rpc_url = f"http://localhost:{args.anvil_port}"
         w3 = Web3(Web3.HTTPProvider(local_rpc_url))
         
         # Verify connection to anvil
         if not w3.is_connected():
             print(f"Failed to connect to Anvil at {local_rpc_url}")
+            # Need to terminate Anvil manually here if connection fails
+            anvil_process.terminate()
+            anvil_process.wait(timeout=5)
             sys.exit(1)
         
         # Deploy contract
@@ -483,19 +569,68 @@ def main():
         # Get block data for all blocks from fork to attack
         blocks_data = get_block_data(w3, tx_hash, args.fork_block)
         
+        # Extract attack block number *before* saving modifies the dict
+        attack_block_num = blocks_data.get('attack_block_number')
+
         # Save block data
         save_block_data(blocks_data, args.output_file)
         
+        # Generate transaction trace if requested
+        if args.generate_trace:
+            if generate_transaction_trace(tx_hash, local_rpc_url, args.attack_type):
+                print("Transaction trace and flame graph generated successfully!")
+            else:
+                print("Warning: Failed to generate transaction trace")
+        
         print("Block generation completed successfully!")
+
+        # If keep_rpc_running flag is set, print info and wait
+        if args.keep_rpc_running:
+            print("\n" + "="*30)
+            print("Block Generated. Anvil RPC Running (Interactive Mode)")
+            print(f"RPC URL: {local_rpc_url}")
+            print(f"Forked Block: {args.fork_block}")
+            print(f"Attack Block: {attack_block_num if attack_block_num else 'N/A'}")
+            print(f"Attack Contract: {contract_address if contract_address else 'N/A'}")
+            print(f"Attack Tx Hash: {tx_hash if tx_hash else 'N/A'}")
+            print(f"Saved Block Data: {args.output_file}")
+            print(f"Using Private Key: {args.private_key} (Anvil default account 0)")
+            print("Press Ctrl+C to stop Anvil.")
+            print("="*30 + "\n")
+            try:
+                # Wait for Anvil process to terminate (e.g., via Ctrl+C)
+                anvil_process.wait()
+            except KeyboardInterrupt:
+                print("\nAnvil stopped by user.")
+                # Ensure termination if interrupted
+                if anvil_process.poll() is None:
+                    print("Terminating Anvil process...")
+                    anvil_process.terminate()
+                    anvil_process.wait(timeout=5)
+            print("Exiting script after interactive mode.")
+            # No sys.exit here, let it fall through to the finally block
         
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"Error during block generation: {e}")
+        # Ensure Anvil is terminated even on error *only if* not in keep-running mode
+        if not args.keep_rpc_running:
+            print("Terminating Anvil due to error...")
+            if anvil_process.poll() is None: # Check if it's still running
+                 anvil_process.terminate()
+                 anvil_process.wait(timeout=5)
         sys.exit(1)
+        
     finally:
-        # Terminate anvil process
-        print("Terminating Anvil...")
-        anvil_process.terminate()
-        anvil_process.wait(timeout=5)
+        # Terminate anvil process only if not in keep-running mode AND it hasn't been terminated already
+        if not args.keep_rpc_running and anvil_process.poll() is None:
+            print("Terminating Anvil...")
+            anvil_process.terminate()
+            anvil_process.wait(timeout=5)
+        elif args.keep_rpc_running and anvil_process.poll() is not None:
+            print("Anvil process already terminated.")
+        elif not args.keep_rpc_running and anvil_process.poll() is not None:
+            print("Anvil process already terminated (likely due to error handling)." )
+            
 
 if __name__ == "__main__":
     main() 
