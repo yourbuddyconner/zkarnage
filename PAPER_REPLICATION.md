@@ -19,7 +19,8 @@ This document provides instructions for reproducing the results from **"Unaligne
    pip install -r requirements.txt
    ```
 
-3. **RSP (Reth State Provider)** from Succinct
+3. **RSP (Reth Succinct Processor)** from Succinct Labs
+   - RSP generates zero-knowledge proofs of EVM block execution using Reth and SP1
    - Follow installation instructions at [https://github.com/succinctlabs/rsp](https://github.com/succinctlabs/rsp)
    - Ensure `rsp` is available in your PATH
 
